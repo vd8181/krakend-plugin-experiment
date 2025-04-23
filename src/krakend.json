@@ -1,0 +1,94 @@
+{
+  "version": 3,
+  "name": "Journal API Gateway",
+  "port": 3000,
+  "timeout": "10000ms",
+  "plugin": {
+    "folder": "plugins",
+    "pattern": ".so"
+  },
+  "endpoints": [
+    {
+      "endpoint": "/validatecertificate",
+      "method": "POST",
+      "output_encoding": "json",
+      "extra_config": {
+        "plugin/http-server": {
+          "name": "CertificateValidationPlugin",
+          "CertificateValidationPlugin": {
+            "signature_key": "signature",
+            "data_key": "data",
+            "public_key_path": "./certs/demo/public_key.pem"
+          }
+        }
+      },
+      "backend": [
+        {
+          "host": ["http://host.docker.internal:8080"],
+          "url_pattern": "/clientValidated",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "endpoint": "/journals",
+      "method": "GET",
+      "backend": [
+        {
+          "url_pattern": "/journals",
+          "host": [
+            "http://host.docker.internal:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/journals",
+      "method": "POST",
+      "backend": [
+        {
+          "url_pattern": "/journals",
+          "host": [
+            "http://host.docker.internal:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/journals/{title}",
+      "method": "GET",
+      "backend": [
+        {
+          "url_pattern": "/journals/{title}",
+          "host": [
+            "http://host.docker.internal:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/journals/{title}",
+      "method": "DELETE",
+      "backend": [
+        {
+          "url_pattern": "/journals/{title}",
+          "host": [
+            "http://host.docker.internal:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "endpoint": "/journals",
+      "method": "PUT",
+      "backend": [
+        {
+          "url_pattern": "/journals",
+          "host": [
+            "http://host.docker.internal:8080"
+          ]
+        }
+      ]
+    }
+  ]
+}
