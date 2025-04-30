@@ -1,42 +1,59 @@
-# Use the same Go version and Alpine version as KrakenD to ensure compatibility
-FROM golang:1.23.7-alpine3.21 AS builder
+FROM --platform=linux/amd64 devopsfaith/krakend:2.9.3 as builder
 
-# Install necessary tools and dependencies
-RUN apk add --no-cache musl-dev gcc git
+RUN apk add --no-cache build-base git go
+RUN apk add --no-cache gcc musl-dev git go
 
-# Set the working directory in the container
+RUN apk update && apk upgrade musl
+
 WORKDIR /app
 
-# Copy the Go module files
 COPY go.mod go.sum ./
 
-# Ensure required dependencies are fetched and aligned with KrakenD
-RUN go clean -modcache
-RUN go mod tidy
-RUN go mod download
+# Pin dependencies as needed for KrakenD compatibility
+RUN go mod tidy && go mod download
 
-# Copy the source code into the container
 COPY validator.go ./
 
-# Set environment variables for plugin compilation
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
-# Build the plugin(Convert .go file to .so file which would be utilised by krakend service)
+RUN go get github.com/luraproject/lura/v2@v2.9.0 \
+     github.com/luraproject/lura/v2/proxy@v2.9.0 \
+     github.com/luraproject/lura/v2/config@v2.9.0 \
+     github.com/luraproject/lura/v2/sd@v2.9.0
 RUN go build -buildmode=plugin -o validator.so validator.go
 
-# Second stage: Use the KrakenD runtime image
 FROM devopsfaith/krakend:2.9.3
 
-# Set the working directory for KrakenD
 WORKDIR /app
 
-# Copy the compiled plugin and dependency files from the builder stage
-COPY --from=builder /app/validator.so /app/
-COPY --from=builder /app/go.mod /app/
-COPY --from=builder /app/go.sum /app/
+COPY --from=builder /app/validator.so .
+COPY --from=builder /app/go.mod .
+COPY --from=builder /app/go.sum .
 
-# Expose the default KrakenD port
 EXPOSE 3000
 
-# Default command for validating the plugin
 CMD ["check-plugin", "/app/validator.so"]
+
+#
+# ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
+#
+# # Optional: Only needed if your go.mod doesn't already include these
+# RUN go get github.com/luraproject/lura/v2@v2.9.0 \
+#     github.com/luraproject/lura/v2/proxy@v2.9.0 \
+#     github.com/luraproject/lura/v2/config@v2.9.0 \
+#     github.com/luraproject/lura/v2/sd@v2.9.0
+#
+# RUN go build -x -buildmode=plugin -o validator.so validator.go
+#
+# # Runtime stage
+# FROM devopsfaith/krakend:2.9.3
+#
+# WORKDIR /app
+#
+# COPY --from=builder /app/validator.so .
+COPY --from=builder /app/go.mod .
+COPY --from=builder /app/go.sum .
+#
+# EXPOSE 3000
+#
+# CMD ["check-plugin", "/app/validator.so"]

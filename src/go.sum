@@ -1,7 +1,8 @@
+github.com/devopsfaith/flatmap v0.0.0-20200601181759-8521186182fc/go.mod h1:J9Y/58s7wx7HbHT3i4UKNwLGuBB9qCf0/JUdEFGDPmA=
 github.com/krakendio/flatmap v1.1.1 h1:rGBNVpBY0pMk6cLOwerVzoKY4HELnpu0xvqB231lOCQ=
 github.com/krakendio/flatmap v1.1.1/go.mod h1:KBuVkiH5BcBFRa5A1HdSHDn8a8LzsyRTKZArX0vqTbo=
-github.com/luraproject/lura/v2 v2.9.0 h1:JeqlrUz0wM4ITVHOtEaFJ5sS6TW25/lTDmMCsQUY44U=
-github.com/luraproject/lura/v2 v2.9.0/go.mod h1:pJQDsCSSrE5udlzkLvUnFkdrqeQ+jDO1ZIzsx6jgLtk=
+github.com/luraproject/lura/v2 v2.9.1 h1:ALN5mn83geDF8AtriMyEJmYFse4wqOxdlB7OjWYwwFg=
+github.com/luraproject/lura/v2 v2.9.1/go.mod h1:MWbT5xuqJkMoUCRo6vvvWZhjRsCpvntEUYrsSGgV3yo=
 github.com/valyala/fastrand v1.1.0 h1:f+5HkLW4rsgzdNoleUOB69hyT9IlD2ZQh9GyDMfb5G8=
 github.com/valyala/fastrand v1.1.0/go.mod h1:HWqCzkrkg6QXT8V2EXWvXCoow7vLwOFN002oeRzjapQ=
 golang.org/x/text v0.22.0 h1:bofq7m3/HAFvbF51jz3Q9wLg3jkvSPuiZu/pD1XwgtM=
