@@ -12,23 +12,21 @@
       "endpoint": "/validatecertificate",
       "method": "POST",
       "output_encoding": "json",
+
       "extra_config": {
-        "plugin/http-server": {
-          "name": "CertificateValidationPlugin",
-          "CertificateValidationPlugin": {
-            "signature_key": "signature",
-            "data_key": "data",
-            "public_key_path": "./certs/demo/public_key.pem"
-          }
+        "plugin/req-resp-modifier": {
+          "name": ["validator"],
+          "public_key_path": "/etc/krakend/certs/demo/public_key.pem"
         }
-      },
-      "backend": [
-        {
-          "host": ["http://host.docker.internal:8080"],
-          "url_pattern": "/clientValidated",
-          "method": "GET"
-        }
-      ]
+      },"backend": [
+      {
+        "url_pattern": "/clientValidated",
+        "host": [
+          "http://host.docker.internal:8080"
+        ],
+        "method": "GET"
+      }
+    ]
     },
     {
       "endpoint": "/journals",
