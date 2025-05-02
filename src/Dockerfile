@@ -1,25 +1,26 @@
-FROM --platform=linux/arm64/v8 alpine:3.21.3 as builder
+FROM --platform=linux/amd64/v3 golang:1.23.7-alpine3.21 as builder
 RUN apk add --no-cache build-base git go musl musl-dev
 
 WORKDIR /app
 
 COPY go.mod go.sum ./
-
 RUN go mod tidy && go mod download
 
 COPY validator.go ./
 
-ENV CGO_ENABLED=1 GOOS=linux GOARCH=arm64
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
 RUN go get github.com/luraproject/lura/v2@v2.9.0 \
      github.com/luraproject/lura/v2/proxy@v2.9.0 \
      github.com/luraproject/lura/v2/config@v2.9.0 \
      github.com/luraproject/lura/v2/sd@v2.9.0
 
-RUN go build -buildmode=plugin -o validator.so validator.go
+RUN go build -x -buildmode=plugin -o validator.so validator.go
 
-FROM --platform=linux/arm64/v8 devopsfaith/krakend:2.9.3
+FROM --platform=linux/amd64/v3 devopsfaith/krakend:2.9.3
+WORKDIR /etc
 
+COPY certs/demo/public_key.pem /etc/krakend/certs/demo/public_key.pem
 WORKDIR /app
 
 
@@ -27,7 +28,6 @@ COPY --from=builder /app/validator.so .
 COPY --from=builder /app/go.mod .
 COPY --from=builder /app/go.sum .
 COPY krakend.json /app/krakend.json
-
 # Expose the default KrakenD port
 EXPOSE 8080
 

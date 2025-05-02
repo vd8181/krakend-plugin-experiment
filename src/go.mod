@@ -1,8 +1,8 @@
 module validator
 
-go 1.23.0
+go 1.23.7
 
-toolchain go1.23.5
+toolchain go1.23.7
 
 require (
 	github.com/devopsfaith/flatmap v0.0.0-20200601181759-8521186182fc // indirect
