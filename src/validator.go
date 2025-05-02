@@ -12,14 +12,62 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"net/http/httputil"
 	"os"
 
 	"github.com/luraproject/lura/v2/proxy"
 )
 
-// Plugin exports the required symbol for KrakenD.
-var Plugin = func() interface{} {
-	return certificateValidator
+
+
+// HandlerRegisterer is the symbol required by KrakenD to register the plugin as a handler.
+var HandlerRegisterer = registerer("validator")
+// Define and export the ClientRegisterer symbol
+var ClientRegisterer = registerer("validator")
+
+// Define and export the ModifierRegisterer symbol
+var ModifierRegisterer = registerer("validator")
+
+type registerer string
+
+
+func (r registerer) RegisterClients() map[string]proxy.RegisterClients {
+	return map[string]proxy.RegisterClients{
+		"custom_validator": func(_ *proxy.Request) (*proxy.Response, error) {
+			// Custom validation logic
+			return &proxy.Response{}, nil
+		},
+	}
+}
+
+func (r registerer) RegisterModifiers() []proxy.RequestModifier {
+	return []proxy.RequestModifier{
+		func(req *proxy.Request) {
+			// Example modifier logic
+			req.Headers["X-Modified"] = []string{"true"}
+		},
+	}
+}
+
+func (r registerer) RegisterHandlers(
+	cfg map[string]interface{},
+	handlerCreator func(proxy.Proxy) http.Handler,
+) map[string]http.Handler {
+	// Create a simple proxy.Proxy function
+	baseProxy := func(ctx context.Context, req *proxy.Request) (*proxy.Response, error) {
+		// Placeholder proxy logic
+		return &proxy.Response{Data: map[string]interface{}{}}, nil
+	}
+
+	// Wrap the base proxy with middleware
+	wrappedProxy := certificateValidatorMiddleware(baseProxy)
+
+	// Pass the wrapped proxy to the handlerCreator
+	return map[string]http.Handler{
+		string(r): handlerCreator(wrappedProxy),
+	}
 }
 
 // Config holds the plugin configuration.
@@ -61,8 +109,8 @@ func init() {
 	}
 }
 
-// certificateValidator is the middleware that validates the certificate.
-func certificateValidator(next proxy.Proxy) proxy.Proxy {
+// certificateValidatorMiddleware wraps the next proxy.Proxy with a middleware that validates the certificate.
+func certificateValidatorMiddleware(next proxy.Proxy) proxy.Proxy {
 	return func(ctx context.Context, req *proxy.Request) (*proxy.Response, error) {
 		// Load the public key using the global publicKeyPath.
 		publicKey, err := loadPublicKey(publicKeyPath)
