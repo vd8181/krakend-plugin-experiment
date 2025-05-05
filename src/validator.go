@@ -7,103 +7,84 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"html"
 	"io"
+	"net/http"
 	"os"
-
-	"github.com/luraproject/lura/v2/proxy"
 )
 
-// Plugin exports the required symbol for KrakenD.
-var Plugin = func() interface{} {
-	return certificateValidator
+var pluginName = "validator"
+
+// HandlerRegisterer is the symbol the plugin loader will try to load. It must implement the Registerer interface
+var HandlerRegisterer = registerer(pluginName)
+
+type registerer string
+
+func (r registerer) RegisterHandlers(f func(
+	name string,
+	handler func(context.Context, map[string]interface{}, http.Handler) (http.Handler, error),
+)) {
+	f(string(r), r.registerHandlers)
 }
 
-// Config holds the plugin configuration.
-type Config struct {
-	PublicKeyPath string `json:"public_key_path"`
-}
-
-// RequestData represents the data structure in the request.
-type RequestData struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	DOB   string `json:"dob"`
-}
-
-// Payload represents the complete request payload.
-type Payload struct {
-	Data      RequestData `json:"data"`
-	Signature string      `json:"signature"`
-}
-
-// HTTPError represents a custom HTTP error with a status code.
-type HTTPError struct {
-	StatusCode int
-	Message    string
-}
-
-func (e *HTTPError) Error() string {
-	return e.Message
-}
-
-// global public key path, set via the PUBLIC_KEY_PATH environment variable.
-// If not set, defaults to "/etc/krakend/certs/demo/public_key.pem".
-var publicKeyPath string
-
-func init() {
-	publicKeyPath = os.Getenv("PUBLIC_KEY_PATH")
-	if publicKeyPath == "" {
-		publicKeyPath = "/etc/krakend/certs/demo/public_key.pem"
+func (r registerer) registerHandlers(_ context.Context, extra map[string]interface{}, h http.Handler) (http.Handler, error) {
+	config, ok := extra[pluginName].(map[string]interface{})
+	if !ok {
+		return h, errors.New("configuration not found")
 	}
-}
 
-// certificateValidator is the middleware that validates the certificate.
-func certificateValidator(next proxy.Proxy) proxy.Proxy {
-	return func(ctx context.Context, req *proxy.Request) (*proxy.Response, error) {
-		// Load the public key using the global publicKeyPath.
-		publicKey, err := loadPublicKey(publicKeyPath)
-		if err != nil {
-			return nil, &HTTPError{StatusCode: 500, Message: "failed to load public key"}
+	path, _ := config["path"].(string)
+	logger.Debug(fmt.Sprintf("The plugin is now hijacking the path %s", path))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.URL.Path != path {
+			h.ServeHTTP(w, req)
+			return
 		}
 
-		// Read and decode the request body.
+		fmt.Fprintf(w, "Hello, %q", html.EscapeString(req.URL.Path))
+
+		// Load the public key
+		publicKey, err := loadPublicKey("/etc/krakend/certs/demo/public_key.pem")
+		if err != nil {
+			logger.Error("failed to load public key:", err)
+			http.Error(w, "failed to load public key", http.StatusInternalServerError)
+			return
+		}
+
+		// Decode the base64 signature from the request body
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			return nil, &HTTPError{StatusCode: 400, Message: "failed to read request body"}
+			logger.Error("failed to read request body:", err)
+			http.Error(w, "failed to read request body", http.StatusBadRequest)
+			return
 		}
 
-		var payload Payload
-		if err := json.Unmarshal(body, &payload); err != nil {
-			return nil, &HTTPError{StatusCode: 400, Message: "invalid JSON payload"}
-		}
-
-		// Decode the signature.
-		signature, err := base64.StdEncoding.DecodeString(payload.Signature)
+		// Assume the request body contains the base64-encoded signature
+		signature, err := base64.StdEncoding.DecodeString(string(body))
 		if err != nil {
-			return nil, &HTTPError{StatusCode: 400, Message: "invalid signature format"}
+			logger.Error("invalid base64 signature format:", err)
+			http.Error(w, "invalid signature format", http.StatusBadRequest)
+			return
 		}
 
-		// Serialize the 'data' field for validation.
-		dataToEncode, err := json.Marshal(payload.Data)
-		if err != nil {
-			return nil, &HTTPError{StatusCode: 500, Message: "failed to serialize data for validation"}
-		}
+		// Example data that should be verified
+		dataToEncode := []byte("example data")
 
-		// Validate the signature.
+		// Validate the signature
 		if !validateSignature(publicKey, dataToEncode, signature) {
-			return nil, &HTTPError{StatusCode: 401, Message: "certificate validation failed"}
+			logger.Error("certificate validation failed")
+			http.Error(w, "certificate validation failed", http.StatusUnauthorized)
+			return
 		}
 
-		// Continue processing if validation is successful.
-		return next(ctx, req)
-	}
+		logger.Debug("request:", html.EscapeString(req.URL.Path))
+	}), nil
 }
 
-// loadPublicKey loads the RSA public key from a PEM file.
 func loadPublicKey(filePath string) (*rsa.PublicKey, error) {
 	publicKeyPEM, err := os.ReadFile(filePath)
 	if err != nil {
@@ -128,7 +109,6 @@ func loadPublicKey(filePath string) (*rsa.PublicKey, error) {
 	return rsaPublicKey, nil
 }
 
-// validateSignature validates the RSA signature using the public key.
 func validateSignature(publicKey *rsa.PublicKey, data []byte, signature []byte) bool {
 	hashed := sha256.Sum256(data)
 	err := rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hashed[:], signature)
@@ -139,6 +119,35 @@ func validateSignature(publicKey *rsa.PublicKey, data []byte, signature []byte) 
 	return true
 }
 
-func main() {
-	// This function is required to compile the plugin.
+func main() {}
+
+// This logger is replaced by the RegisterLogger method to load the one from KrakenD
+var logger Logger = noopLogger{}
+
+func (registerer) RegisterLogger(v interface{}) {
+	l, ok := v.(Logger)
+	if !ok {
+		return
+	}
+	logger = l
+	logger.Debug(fmt.Sprintf("[PLUGIN: %s] Logger loaded", HandlerRegisterer))
 }
+
+type Logger interface {
+	Debug(v ...interface{})
+	Info(v ...interface{})
+	Warning(v ...interface{})
+	Error(v ...interface{})
+	Critical(v ...interface{})
+	Fatal(v ...interface{})
+}
+
+// Empty logger implementation
+type noopLogger struct{}
+
+func (n noopLogger) Debug(_ ...interface{})    {}
+func (n noopLogger) Info(_ ...interface{})     {}
+func (n noopLogger) Warning(_ ...interface{})  {}
+func (n noopLogger) Error(_ ...interface{})    {}
+func (n noopLogger) Critical(_ ...interface{}) {}
+func (n noopLogger) Fatal(_ ...interface{})    {}

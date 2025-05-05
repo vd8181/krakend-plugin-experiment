@@ -13,12 +13,8 @@
       "method": "POST",
       "output_encoding": "json",
 
-      "extra_config": {
-        "plugin/req-resp-modifier": {
-          "name": ["validator"],
-          "public_key_path": "/etc/krakend/certs/demo/public_key.pem"
-        }
-      },"backend": [
+
+      "backend": [
       {
         "url_pattern": "/clientValidated",
         "host": [
@@ -88,5 +84,13 @@
         }
       ]
     }
-  ]
+  ],
+  "extra_config": {
+  "plugin/http-server": {
+    "name": ["validator"],
+    "validator": {
+      "path": "/validatecertificate"
+    }
+  }
+}
 }
