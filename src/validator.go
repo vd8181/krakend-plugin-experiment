@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -14,11 +15,22 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 var pluginName = "validator"
 
-// HandlerRegisterer is the symbol the plugin loader will try to load. It must implement the Registerer interface
+type RequestData struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Dob   string `json:"dob"`
+}
+
+type Payload struct {
+	Data      RequestData `json:"data"`
+	Signature string      `json:"signature"`
+}
+
 var HandlerRegisterer = registerer(pluginName)
 
 type registerer string
@@ -47,7 +59,6 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 
 		fmt.Fprintf(w, "Hello, %q", html.EscapeString(req.URL.Path))
 
-		// Load the public key
 		publicKey, err := loadPublicKey("/etc/krakend/certs/demo/public_key.pem")
 		if err != nil {
 			logger.Error("failed to load public key:", err)
@@ -55,31 +66,49 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 			return
 		}
 
-		// Decode the base64 signature from the request body
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
 			logger.Error("failed to read request body:", err)
 			http.Error(w, "failed to read request body", http.StatusBadRequest)
 			return
 		}
+		defer req.Body.Close()
 
-		// Assume the request body contains the base64-encoded signature
-		signature, err := base64.StdEncoding.DecodeString(string(body))
+		var payload Payload
+		if err := json.Unmarshal(body, &payload); err != nil {
+			logger.Error("invalid JSON payload:", err)
+			http.Error(w, "invalid JSON payload", http.StatusBadRequest)
+			return
+		}
+
+		fmt.Printf("Payload: %+v\n", payload)
+		fmt.Printf("Request Body: %s\n", string(body))
+
+		trimmedSignature := strings.TrimSpace(payload.Signature)
+		signature, err := base64.StdEncoding.DecodeString(trimmedSignature)
 		if err != nil {
 			logger.Error("invalid base64 signature format:", err)
 			http.Error(w, "invalid signature format", http.StatusBadRequest)
 			return
 		}
 
-		// Example data that should be verified
-		dataToEncode := []byte("example data")
+		dataToEncode, err := json.Marshal(payload.Data)
+		if err != nil {
+			logger.Error("failed to serialize data:", err)
+			http.Error(w, "failed to serialize data", http.StatusInternalServerError)
+			return
+		}
 
-		// Validate the signature
 		if !validateSignature(publicKey, dataToEncode, signature) {
 			logger.Error("certificate validation failed")
 			http.Error(w, "certificate validation failed", http.StatusUnauthorized)
 			return
 		}
+        resp,err:=http.Get("http://host.docker.internal:8080/clientValidated");
+        if err!=nil{
+        http.Error(w,"error",http.StatusInternalServerError)
+        return}
+        fmt.Println(resp)
 
 		logger.Debug("request:", html.EscapeString(req.URL.Path))
 	}), nil
@@ -121,7 +150,6 @@ func validateSignature(publicKey *rsa.PublicKey, data []byte, signature []byte) 
 
 func main() {}
 
-// This logger is replaced by the RegisterLogger method to load the one from KrakenD
 var logger Logger = noopLogger{}
 
 func (registerer) RegisterLogger(v interface{}) {
@@ -142,7 +170,6 @@ type Logger interface {
 	Fatal(v ...interface{})
 }
 
-// Empty logger implementation
 type noopLogger struct{}
 
 func (n noopLogger) Debug(_ ...interface{})    {}
