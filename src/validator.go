@@ -57,8 +57,6 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 			return
 		}
 
-		fmt.Fprintf(w, "Hello, %q", html.EscapeString(req.URL.Path))
-
 		publicKey, err := loadPublicKey("/etc/krakend/certs/demo/public_key.pem")
 		if err != nil {
 			logger.Error("failed to load public key:", err)
@@ -104,11 +102,29 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 			http.Error(w, "certificate validation failed", http.StatusUnauthorized)
 			return
 		}
-        resp,err:=http.Get("http://host.docker.internal:8080/clientValidated");
-        if err!=nil{
-        http.Error(w,"error",http.StatusInternalServerError)
-        return}
-        fmt.Println(resp)
+
+		resp, err := http.Get("http://host.docker.internal:8080/clientValidated")
+		if err != nil {
+			http.Error(w, "error", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		body2, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error while reading response body", err)
+			http.Error(w, "error reading response body", http.StatusInternalServerError)
+			return
+		}
+
+		// Send body2 to the client
+		w.Header().Set("Content-Type", "application/json") // Set the content type if body2 is JSON
+		_, err = w.Write(body2)
+		if err != nil {
+			logger.Error("failed to write response body:", err)
+			http.Error(w, "failed to write response body", http.StatusInternalServerError)
+			return
+		}
 
 		logger.Debug("request:", html.EscapeString(req.URL.Path))
 	}), nil
