@@ -53,7 +53,8 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != path {
-			h.ServeHTTP(w, req)
+// 			h.ServeHTTP(w, req)
+            forwardRequest(w,req)
 			return
 		}
 
@@ -128,6 +129,79 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 
 		logger.Debug("request:", html.EscapeString(req.URL.Path))
 	}), nil
+}
+func forwardRequest(w http.ResponseWriter, req *http.Request) {
+
+    // Construct the backend URL
+
+    backendURL := "http://host.docker.internal:8080" + req.URL.Path
+
+    if req.URL.RawQuery != "" {
+
+        backendURL += "?" + req.URL.RawQuery
+
+    }
+
+    // Create a new request to the backend
+
+    newReq, err := http.NewRequest(req.Method, backendURL, req.Body)
+
+    if err != nil {
+
+        http.Error(w, "Failed to create request", http.StatusInternalServerError)
+
+        return
+
+    }
+
+    // Copy headers from the original request
+
+    for name, values := range req.Header {
+
+        for _, value := range values {
+
+            newReq.Header.Add(name, value)
+
+        }
+
+    }
+
+    // Make the request to the backend
+
+    client := &http.Client{}
+    fmt.Println(newReq)
+    resp, err := client.Do(newReq)
+
+    if err != nil {
+
+        http.Error(w, "Failed to reach backend", http.StatusBadGateway)
+
+        return
+
+    }
+
+    defer resp.Body.Close()
+
+    // Copy the response headers
+
+    for name, values := range resp.Header {
+
+        for _, value := range values {
+
+            w.Header().Add(name, value)
+
+        }
+
+    }
+
+    // Write the status code
+
+    w.WriteHeader(resp.StatusCode)
+
+    // Copy the response body
+
+    io.Copy(w, resp.Body)
+
 }
 
 func loadPublicKey(filePath string) (*rsa.PublicKey, error) {

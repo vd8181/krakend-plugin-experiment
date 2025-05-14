@@ -2,11 +2,7 @@
   "version": 3,
   "name": "Journal API Gateway",
   "port": 3000,
-  "timeout": "10000ms",
-  "plugin": {
-    "pattern": ".so",
-    "folder": "/app"
-  },
+  "timeout": "10000ms",  "plugin": {  "pattern": ".so",  "folder": "/app"},
   "endpoints": [
     {
       "endpoint": "/validatecertificate",
@@ -22,7 +18,19 @@
         ],
         "method": "GET"
       }
-    ]
+    ],
+      "extra_config": {
+      "qos/ratelimit/router":{
+        "max_rate": 3,
+        "every": "1s",
+        "strategy": "ip",
+        "capacity": 3,
+        "client_max_rate": 1,
+
+        "client_capacity": 3
+      }
+    }
+
     },
     {
       "endpoint": "/journals",
@@ -32,9 +40,22 @@
           "url_pattern": "/journals",
           "host": [
             "http://host.docker.internal:8080"
-          ]
+          ],
+          "encoding": "json",
+          "is_collection": "true"
         }
-      ]
+      ],
+      "extra_config": {
+      "qos/ratelimit/router":{
+        "max_rate": 3,
+        "every": "1s",
+        "strategy": "ip",
+        "capacity": 3,
+        "client_max_rate": 1,
+        "client_capacity": 3
+      }
+    }
+
     },
     {
       "endpoint": "/journals",
@@ -86,11 +107,18 @@
     }
   ],
   "extra_config": {
-  "plugin/http-server": {
-    "name": ["validator"],
-    "validator": {
-      "path": "/validatecertificate"
+    "plugin/http-server": {
+      "name": ["validator"],
+      "validator": {
+        "path": "/validatecertificate"
+      }
+    },
+    "qos/ratelimit/service": {
+      "max_rate": 3,
+      "client_max_rate": 3,
+      "strategy": "ip",     "every": "1s",
+      "capacity": 3,
+      "client_capacity": 3
     }
   }
-}
 }
