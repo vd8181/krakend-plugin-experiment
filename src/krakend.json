@@ -20,6 +20,12 @@
       }
     ],
       "extra_config": {
+        "plugin/http-server": {
+        "name": ["validator"],
+        "validator": {
+          "path": "/validatecertificate"
+        }
+      },
       "qos/ratelimit/router":{
         "max_rate": 3,
         "every": "1s",
