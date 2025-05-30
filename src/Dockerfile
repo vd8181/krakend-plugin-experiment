@@ -7,15 +7,17 @@ COPY go.mod go.sum ./
 RUN go mod tidy && go mod download
 
 COPY validator.go ./
-
+COPY rate_limiting.go ./
 ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64
 
 RUN go get github.com/luraproject/lura/v2@v2.9.0 \
      github.com/luraproject/lura/v2/proxy@v2.9.0 \
      github.com/luraproject/lura/v2/config@v2.9.0 \
-     github.com/luraproject/lura/v2/sd@v2.9.0
-
+     github.com/luraproject/lura/v2/sd@v2.9.0 \
+     github.com/luraproject/lura/v2/transport/http/server@v2.9.0 \
+     github.com/redis/go-redis/v9
 RUN go build -x -buildmode=plugin -o validator.so validator.go
+RUN go build -x -buildmode=plugin -o rate_limiting.so rate_limiting.go
 
 FROM --platform=linux/amd64/v3 devopsfaith/krakend:2.9.3
 WORKDIR /etc
@@ -25,6 +27,7 @@ WORKDIR /app
 
 
 COPY --from=builder /app/validator.so .
+COPY --from=builder /app/rate_limiting.so .
 COPY --from=builder /app/go.mod .
 COPY --from=builder /app/go.sum .
 COPY krakend.json /app/krakend.json

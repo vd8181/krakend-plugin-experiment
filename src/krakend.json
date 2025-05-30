@@ -13,35 +13,30 @@
 
 
       "backend": [
-      {
-        "url_pattern": "/clientValidated",
-        "host": [
-          "http://host.docker.internal:8080"
-        ],
-        "method": "GET"
-      }
-    ],
-      "extra_config": {
-        "plugin/http-server": {
-        "name": ["validator"],
-        "validator": {
-          "path": "/validatecertificate"
+        {
+          "url_pattern": "/clientValidated",
+          "host": [
+            "http://host.docker.internal:8080"
+          ],
+          "method": "GET"
         }
-      },
-      "qos/ratelimit/router":{
-        "max_rate": 2,
-        "every": "15s",
-        "strategy": "ip",
-        "capacity": 1,
-        "client_max_rate": 1,
+      ],
+      "extra_config": {
 
-        "client_capacity": 2
+        "qos/ratelimit/router":{
+          "max_rate": 2,
+          "every": "15s",
+          "strategy": "ip",
+          "capacity": 4,
+          "client_max_rate": 1,
+
+          "client_capacity": 5
+        }
       }
-    }
 
     },
     {
-      "endpoint": "/journals",
+      "endpoint": "/journals/{customer_id}",
       "method": "GET",
       "backend": [
         {
@@ -54,15 +49,16 @@
         }
       ],
       "extra_config": {
-      "qos/ratelimit/router":{
-        "max_rate": 3,
-        "every": "15s",
-        "strategy": "ip",
-        "capacity": 3,
-        "client_max_rate": 1,
-        "client_capacity": 3
+        "qos/ratelimit/router":{
+
+          "every": "15s",
+          "strategy": "param",
+          "key": "customer_id",
+
+          "client_max_rate": 1,
+          "client_capacity": 3
+        }
       }
-    }
 
     },
     {
@@ -76,49 +72,20 @@
           ]
         }
       ]
-    },
-    {
-      "endpoint": "/journals/{title}",
-      "method": "GET",
-      "backend": [
-        {
-          "url_pattern": "/journals/{title}",
-          "host": [
-            "http://host.docker.internal:8080"
-          ]
-        }
-      ]
-    },
-    {
-      "endpoint": "/journals/{title}",
-      "method": "DELETE",
-      "backend": [
-        {
-          "url_pattern": "/journals/{title}",
-          "host": [
-            "http://host.docker.internal:8080"
-          ]
-        }
-      ]
-    },
-    {
-      "endpoint": "/journals",
-      "method": "PUT",
-      "backend": [
-        {
-          "url_pattern": "/journals",
-          "host": [
-            "http://host.docker.internal:8080"
-          ]
-        }
-      ]
     }
+
   ],
   "extra_config": {
     "plugin/http-server": {
       "name": ["validator"],
       "validator": {
         "path": "/validatecertificate"
+      }
+    },
+    "plugin/http-server": {
+      "name": ["rate_limiting"],
+      "rate_limiting": {
+        "path": "/rate_limiting"
       }
     },
     "qos/ratelimit/service": {

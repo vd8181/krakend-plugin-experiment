@@ -140,4 +140,4 @@ func (n noopLogger) Info(_ ...interface{})     {}
 func (n noopLogger) Warning(_ ...interface{})  {}
 func (n noopLogger) Error(_ ...interface{})    {}
 func (n noopLogger) Critical(_ ...interface{}) {}
-func (n noopLogger) Fatal(_ ...interface{})    {}
+func (n noopLogger) Fatal(_ ...interface{})     {}

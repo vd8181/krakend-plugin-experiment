@@ -1,213 +1,81 @@
-package krakend_ratelimiter
+package main
 
 import (
-
 	"context"
-
-	"errors"
-
+	"fmt"
 	"net/http"
-
-	"sync"
-
-	"time"
-
-	"github.com/devopsfaith/krakend/transport/http/server"
-
+	"github.com/redis/go-redis/v9"
+// 	"html"
+	"errors"
 )
 
-var (
+var pluginName = "rate_limiting"
 
-	globalLimiter *RateLimiter
+var HandlerRegisterer = registerer(pluginName)
 
-	endpointLimiters = make(map[string]*RateLimiter)
+type registerer string
 
-	mu sync.Mutex
-
-)
-
-// RateLimiter implements a token bucket algorithm
-
-type RateLimiter struct {
-
-	capacity   int
-
-	tokens     int
-
-	refillRate int // tokens per second
-
-	lastRefill time.Time
-
-	mu         sync.Mutex
-
+func (r registerer) RegisterHandlers(f func(
+	name string,
+	handler func(context.Context, map[string]interface{}, http.Handler) (http.Handler, error),
+)) {
+	f(string(r), r.registerHandlers)
 }
 
-func NewRateLimiter(capacity, refillRate int) *RateLimiter {
-
-	return &RateLimiter{
-
-		capacity:   capacity,
-
-		tokens:     capacity,
-
-		refillRate: refillRate,
-
-		lastRefill: time.Now(),
-
+func (r registerer) registerHandlers(_ context.Context, extra map[string]interface{}, h http.Handler) (http.Handler, error) {
+	config, ok := extra[pluginName].(map[string]interface{})
+	if !ok {
+		return h, errors.New("configuration not found")
 	}
 
-}
+	path, _ := config["path"].(string)
+	fmt.Printf("The plugin is now hijacking the path %s\n", path)
 
-func (r *RateLimiter) Allow() bool {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+// 		if req.URL.Path != path {
+// 			h.ServeHTTP(w, req)
+// 			return
+// 		}
 
-	r.mu.Lock()
+// 		fmt.Fprintf(w, "Hello, %q", html.EscapeString(req.URL.Path))
 
-	defer r.mu.Unlock()
-
-	now := time.Now()
-
-	elapsed := now.Sub(r.lastRefill).Seconds()
-
-	newTokens := int(elapsed * float64(r.refillRate))
-
-	if newTokens > 0 {
-
-		r.tokens = min(r.capacity, r.tokens+newTokens)
-
-		r.lastRefill = now
-
-	}
-
-	if r.tokens > 0 {
-
-		r.tokens--
-
-		return true
-
-	}
-
-	return false
-
-}
-
-func min(a, b int) int {
-
-	if a < b {
-
-		return a
-
-	}
-
-	return b
-
-}
-
-// Register plugin
-
-func init() {
-
-	server.RegisterMiddleware("custom-ratelimit", rateLimitMiddleware)
-
-}
-
-func rateLimitMiddleware(next http.Handler) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		endpoint := r.URL.Path
-
-		limiter := getLimiterForEndpoint(endpoint)
-
-		if !limiter.Allow() {
-
-			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-
+		apiKey := req.Header.Get("API_KEY")
+		if apiKey == "" {
+			fmt.Println("Error in API_KEY")
+			w.WriteHeader(http.StatusUnauthorized)
 			return
-
 		}
 
-		next.ServeHTTP(w, r)
+		client := redis.NewClient(&redis.Options{
+			Addr:     "host.docker.internal:6379",
+			Password: "", // No password set
+			DB:       0,  // Use default DB
+		})
 
-	})
+		ctx := context.Background()
 
+		err := client.Set(ctx, "apikey1", "gold", 0).Err()
+        fmt.Println(err)
+		if err != nil {
+			panic(err)
+		}
+
+		val, err := client.Get(ctx, apiKey).Result()
+
+		if err != nil {
+// 		    panic(err)
+		    fmt.Println("Invalid apikey")
+		    w.WriteHeader(http.StatusUnauthorized)
+		    fmt.Fprintf(w,"Invalid apikey")
+// 		    return w.Header(http.StatusUnauthorized)
+return
+		}
+
+// 		fmt.Println(val==apiKey)
+        fmt.Println(val)
+        fmt.Fprintf(w,"Rate limiting to be applied...")
+		h.ServeHTTP(w, req)
+	}), nil
 }
 
-func getLimiterForEndpoint(endpoint string) *RateLimiter {
-
-	mu.Lock()
-
-	defer mu.Unlock()
-
-	if limiter, ok := endpointLimiters[endpoint]; ok {
-
-		return limiter
-
-	}
-
-	return globalLimiter
-
-}
-
-// Plugin Configuration Interface
-
-type Config struct {
-
-	Global struct {
-
-		Capacity   int `json:"capacity"`
-
-		RefillRate int `json:"refill_rate"`
-
-	} `json:"global"`
-
-	Endpoints map[string]struct {
-
-		Capacity   int `json:"capacity"`
-
-		RefillRate int `json:"refill_rate"`
-
-	} `json:"endpoints"`
-
-}
-
-// Called by KrakenD at plugin initialization
-
-func New(cfg map[string]interface{}) (func(http.Handler) http.Handler, error) {
-
-	parsed := Config{}
-
-	// Decode configuration into struct
-
-	if err := decode(cfg, &parsed); err != nil {
-
-		return nil, err
-
-	}
-
-	// Set global limiter
-
-	globalLimiter = NewRateLimiter(parsed.Global.Capacity, parsed.Global.RefillRate)
-
-	// Set per-endpoint limiters
-
-	for ep, conf := range parsed.Endpoints {
-
-		endpointLimiters[ep] = NewRateLimiter(conf.Capacity, conf.RefillRate)
-
-	}
-
-	return rateLimitMiddleware, nil
-
-}
-
-// Decode helper (use your preferred decoder)
-
-func decode(src map[string]interface{}, dst *Config) error {
-
-	// Use mapstructure, json.Unmarshal with conversion, or a manual decode like below
-
-	// For simplicity, you can assume the structure is always valid
-
-	return errors.New("use a proper decoding method like mapstructure or json marshal")
-
-}
+func main() {}
