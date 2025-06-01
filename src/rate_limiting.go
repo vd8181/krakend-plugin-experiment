@@ -74,6 +74,9 @@ return
 // 		fmt.Println(val==apiKey)
         fmt.Println(val)
         fmt.Fprintf(w,"Rate limiting to be applied...")
+        headers:=req.Header
+        headers.Set("Tier",val)
+        fmt.Println(req)
 		h.ServeHTTP(w, req)
 	}), nil
 }
