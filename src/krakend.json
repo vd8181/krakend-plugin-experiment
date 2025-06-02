@@ -88,13 +88,29 @@
         "path": "/rate_limiting"
       }
     },
-    "qos/ratelimit/service": {
-      "max_rate": 3,
-      "client_max_rate": 3,
-      "strategy": "ip",
-      "every": "15s",
-      "capacity": 3,
-      "client_capacity": 3
+    "qos/ratelimit/tiered": {
+      "tier_key": "Tier",
+      "tiers": [
+        {
+          "tier_value": "gold",
+          "tier_value_as": "literal",
+          "client_max_rate": 5,
+          "client_capacity": 5,
+          "every": "1m",
+          "max_rate": 10,
+          "strategy": "header",
+          "key": "TenantId"
+        },     {
+          "tier_value": "silver",
+          "tier_value_as": "literal",
+          "client_max_rate": 3,
+          "client_capacity": 3,
+          "every": "1m",
+          "max_rate": 5,
+          "strategy": "header",
+          "key": "TenantId"
+        }
+      ]
     }
   }
 }

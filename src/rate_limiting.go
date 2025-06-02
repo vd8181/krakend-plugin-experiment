@@ -54,12 +54,17 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 
 		ctx := context.Background()
 
-		err := client.Set(ctx, "apikey1", "gold", 0).Err()
-        fmt.Println(err)
-		if err != nil {
-			panic(err)
-		}
-
+// 		err := client.Set(ctx, "apikey1", "gold", 0).Err()
+//         fmt.Println(err)
+// 		if err != nil {
+// 			panic(err)
+// 		}
+        all_records,err:=client.Keys(ctx,"*").Result()
+        if err!=nil{
+            panic(err)
+            return
+        }
+        fmt.Println(all_records)
 		val, err := client.Get(ctx, apiKey).Result()
 
 		if err != nil {
@@ -76,7 +81,16 @@ return
         fmt.Fprintf(w,"Rate limiting to be applied...")
         headers:=req.Header
         headers.Set("Tier",val)
-        fmt.Println(req)
+
+                /* in zebra , the tenantID is probably embedded in the apikey itself and has to be decoded from the apikey to apply the
+                rate limiting to each tenant.
+                */
+        queryValues := req.URL.Query()
+        tenantId := queryValues.Get("tenantId")
+        fmt.Println(tenantId)
+
+
+        headers.Set("TenantId",tenantId)
 		h.ServeHTTP(w, req)
 	}), nil
 }
