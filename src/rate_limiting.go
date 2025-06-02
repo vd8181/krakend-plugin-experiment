@@ -77,7 +77,7 @@ return
 		}
 
 // 		fmt.Println(val==apiKey)
-        fmt.Println(val)
+//         fmt.Println(val)
         fmt.Fprintf(w,"Rate limiting to be applied...")
         headers:=req.Header
         headers.Set("Tier",val)
@@ -87,10 +87,11 @@ return
                 */
         queryValues := req.URL.Query()
         tenantId := queryValues.Get("tenantId")
-        fmt.Println(tenantId)
+//         fmt.Println(tenantId)
 
 
-        headers.Set("TenantId",tenantId)
+        headers.Set("Tenant-Id",tenantId)
+        fmt.Println(req)
 		h.ServeHTTP(w, req)
 	}), nil
 }

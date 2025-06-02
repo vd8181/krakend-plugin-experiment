@@ -99,7 +99,7 @@
           "every": "1m",
           "max_rate": 10,
           "strategy": "header",
-          "key": "TenantId"
+          "key": "Tenant-Id"
         },     {
           "tier_value": "silver",
           "tier_value_as": "literal",
@@ -108,7 +108,7 @@
           "every": "1m",
           "max_rate": 5,
           "strategy": "header",
-          "key": "TenantId"
+          "key": "Tenant-Id"
         }
       ]
     }
