@@ -40,12 +40,13 @@ func (r registerer) registerHandlers(_ context.Context, extra map[string]interfa
 // 		fmt.Fprintf(w, "Hello, %q", html.EscapeString(req.URL.Path))
 
 		apiKey := req.Header.Get("API_KEY")
+
 		if apiKey == "" {
 			fmt.Println("Error in API_KEY")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-
+        fmt.Println(apiKey)
 		client := redis.NewClient(&redis.Options{
 			Addr:     "host.docker.internal:6379",
 			Password: "", // No password set
@@ -88,11 +89,17 @@ return
         queryValues := req.URL.Query()
         tenantId := queryValues.Get("tenantId")
 //         fmt.Println(tenantId)
-
-
+        if tenantId==""{
+            fmt.Println("TenantID not found")
+            w.WriteHeader(http.StatusUnauthorized)
+            fmt.Fprintf(w,"TenantID not found")
+               return
+        }
+        fmt.Println(tenantId)
         headers.Set("Tenant-Id",tenantId)
-//         fmt.Println(req)
+        fmt.Println(req)
 //         fmt.Println(w)
+
 		h.ServeHTTP(w, req)
 	}), nil
 }
