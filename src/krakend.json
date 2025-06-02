@@ -25,6 +25,21 @@
 
     },
     {
+      "endpoint": "/journals",
+      "method": "GET",
+      "backend": [
+        {
+          "url_pattern": "/journals",
+          "host": [
+            "http://host.docker.internal:8080"
+          ],
+          "encoding": "json",
+          "is_collection": "true"
+        }
+      ]
+
+    },
+    {
       "endpoint": "/journals/{customer_id}",
       "method": "GET",
       "backend": [
@@ -66,13 +81,12 @@
   ],
   "extra_config": {
     "plugin/http-server": {
-      "name": ["validator"],
+      "name": ["validator","rate_limiting"],
       "validator": {
         "path": "/validatecertificate"
       }
-    },
-    "plugin/http-server": {
-      "name": ["rate_limiting"],
+    ,
+
       "rate_limiting": {
         "path": "/rate_limiting"
       }
