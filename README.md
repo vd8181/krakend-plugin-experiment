@@ -43,7 +43,7 @@ Content: Validates signatures using RSA public keys. Intercepts requests to veri
 validation functionality that provisioning service does. This ensures that the certificate validation runs in the krakend service itself.
 
 Context in a Spring Boot Project:
-Integration: These Go plugins likely interact with the Spring Boot application’s REST endpoints via the KrakenD API Gateway. The Spring Boot app could be part of the backend that KrakenD routes requests to after applying validation and rate limiting.
-Microservices Architecture: This setup suggests a microservices architecture where different components (Spring Boot app, Go plugins, API Gateway) work together to provide a cohesive service.
+Integration: These Go plugins interact with the Spring Boot application’s REST endpoints via the KrakenD API Gateway. The Spring Boot app is a part of the backend that KrakenD routes requests to after applying validation and rate limiting.
+Microservices Architecture: This setup ensures that through the microservices architecture where different components (Spring Boot app, Go plugins, API Gateway) , work together to provide a cohesive service.
 
 
